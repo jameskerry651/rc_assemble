@@ -1,6 +1,7 @@
 import pygame
 import sys
 import time
+import math
 
 # --- 常量定义 ---
 # 手柄轴配置 (这些值可能因手柄型号而异)
@@ -28,6 +29,14 @@ except ImportError:
     print("警告：servo_pwm 模块未找到。舵机控制将不可用。")
     exit(-1)
 
+
+try:
+    from motor_contro_agx import MotorController
+    print("motor_contro_agx 模块已成功导入。")
+except ImportError:
+    print("警告：motor_contro_agx 模块未找到。电机控制将不可用。")
+    exit(-1)
+
 def init_joystick():
     """初始化 Pygame 和手柄"""
     pygame.init()
@@ -35,9 +44,15 @@ def init_joystick():
 
     joystick_count = pygame.joystick.get_count()
     if joystick_count == 0:
-        print("未检测到手柄，请检查是否已插入并且打开。")
-        pygame.quit()
-        sys.exit(1)
+        while True:
+            print("未检测到手柄，请检查是否已插入并且打开。")
+            print("请插入手柄后按任意键继续...")
+            time.sleep(1)  # 等待一段时间，避免过于频繁的检测
+            if pygame.joystick.get_count() > 0:
+                break
+
+        #pygame.quit()
+        #sys.exit(1)
 
     joystick = pygame.joystick.Joystick(0) # 使用第一个检测到的手柄
     joystick.init() # 初始化手柄对象
@@ -92,14 +107,94 @@ def calculate_servo_angle(joystick_value: float,
     return max(min_angle, min(max_angle, angle))
 
 
+
+
+
+def calculate_motor_speed(joystick_value: float, 
+                         deadzone: float = 0.1,
+                         center_speed: float = 0.0, 
+                         min_speed: float = 0.0, 
+                         max_speed: float = 30.0) -> float:
+    """
+    将摇杆值映射为电机速度和方向
+    
+    Args:
+        joystick_value (float): 摇杆输入值，范围通常为 -1.0 到 1.0
+                               正值表示向前，负值表示向后
+        deadzone (float): 死区范围，摇杆在此范围内视为中心位置 (默认: 0.1)
+        min_speed (float): 最小运行速度，超出死区后的最小速度 (默认: 20.0)
+        center_speed (float): 中心速度，通常为0表示停止 (默认: 0.0)
+        max_speed (float): 最大运行速度 (默认: 100.0)
+        
+    Returns:
+        float: 映射后的电机速度
+               正值表示正向运行，负值表示反向运行
+               0表示停止
+               
+    示例:
+        calculate_motor_speed(0.5)    # 返回 60.0 (正向，中等速度)
+        calculate_motor_speed(-0.8)   # 返回 -84.0 (反向，高速度)
+        calculate_motor_speed(0.05)   # 返回 0.0 (死区内，停止)
+    """
+    
+    # 参数验证
+    if not isinstance(joystick_value, (int, float)):
+        raise TypeError("摇杆值必须是数字类型")
+    
+    if deadzone < 0 or deadzone >= 1:
+        raise ValueError("死区值必须在 0 到 1 之间")
+    
+    if min_speed < 0 or max_speed <= min_speed:
+        raise ValueError("速度参数无效: max_speed > min_speed >= 0")
+    
+    # 限制摇杆输入值范围到 [-1, 1]
+    joystick_value = max(-1.0, min(1.0, float(joystick_value)))
+    
+    # 获取摇杆值的绝对值和方向
+    abs_value = abs(joystick_value)
+    direction = 1 if joystick_value >= 0 else -1
+    
+    # 死区处理：如果摇杆值在死区范围内，返回中心速度
+    if abs_value <= deadzone:
+        return center_speed
+    
+    # 计算有效摇杆范围 (去除死区后的范围)
+    effective_range = 1.0 - deadzone
+    effective_value = (abs_value - deadzone) / effective_range
+    
+    # 将有效值映射到速度范围 [min_speed, max_speed]
+    speed_range = max_speed - min_speed
+    mapped_speed = min_speed + (effective_value * speed_range)
+    
+    # 应用方向并返回结果
+    return direction * mapped_speed
+
+
 def main_loop(joystick: pygame.joystick.Joystick):
 
     print(f"\n开始监听左摇杆横向(轴 {LEFT_STICK_X_AXIS})和右摇杆纵向(轴 {RIGHT_STICK_Y_AXIS})的值变化。")
     print(f"左摇杆X控制舵机角度: [{SERVO_MIN_ANGLE}° - {SERVO_MAX_ANGLE}°]，中心 {SERVO_CENTER_ANGLE}°")
     print("按 Ctrl+C 退出程序。")
     
+     # 创建电机控制器实例
+    motor = MotorController(pwm_pin=15, dir_pin=22, pwm_frequency=1000)
+     # 显示配置信息
+    # status = motor.get_status()
+    # print(f"PWM引脚 (BOARD): {status['pwm_pin']}")
+    # print(f"方向控制引脚 (BOARD): {status['dir_pin']}")
+    # print(f"PWM频率: {status['pwm_frequency']} Hz")
+    # print("确保您的电机驱动器连接正确!")
+    # print("按 Ctrl+C 退出并清理资源")
+
+     # 初始化电机控制
+    if not motor.initialize():
+        print("由于初始化失败而退出")
+        exit(-1)
+
+    
     running = True
     last_servo_angle_sent = -1 # 用于减少重复发送相同的舵机角度
+    last_motor_speed = 0 # 用于跟踪上次的电机速度
 
     try:
         while running:
@@ -110,6 +205,7 @@ def main_loop(joystick: pygame.joystick.Joystick):
 
                     # --- 左摇杆横向 (控制舵机) ---
                     if axis_index == LEFT_STICK_X_AXIS:
+                        
                         servo_angle_float = calculate_servo_angle(
                             value, 
                             DEADZONE_THRESHOLD,
@@ -134,18 +230,22 @@ def main_loop(joystick: pygame.joystick.Joystick):
 
                     # --- 右摇杆纵向 (仅显示信息) ---
                     elif axis_index == RIGHT_STICK_Y_AXIS:
-                        state_desc = "居中"
-                        if value < -DEADZONE_THRESHOLD: # value < 0 表示“向上”
-                            state_desc = f"向上 {value:+.3f}"
-                        elif value > DEADZONE_THRESHOLD: # value > 0 表示“向下”
-                            state_desc = f"向下 {value:+.3f}"
-                        else:
-                            # 在死区内，但为了清晰，即使在此处不执行任何操作，也打印状态
-                            pass # state_desc 已经是 "居中"
-                        
-                        # 只有当状态有意义时才打印（不在死区内或刚进入死区）
-                        if abs(value) >= DEADZONE_THRESHOLD or state_desc == "居中": # 简化逻辑，总是打印
-                             print(f"[右摇杆 Y (轴 {axis_index})] 值: {value:+.3f} -> 状态: {state_desc}")
+                        motor_speed = int(calculate_motor_speed(value))
+                        print(f"[右摇杆 Y (轴 {axis_index})] 值: {value:+.3f} -> 电机速度: {motor_speed:+.2f} (正值表示向前，负值表示向后)")
+                        # 仅当电机速度变化时才发送指令并打印，减少通讯和日志噪音
+                        if motor_speed != last_motor_speed:
+
+                            last_motor_speed = motor_speed
+                            if value < -DEADZONE_THRESHOLD: # value < 0 表示“向上”
+                                motor.run_forward(abs(motor_speed))
+                                state_desc = f"向上 {value:+.3f}"
+                            elif value > DEADZONE_THRESHOLD: # value > 0 表示“向下”
+                                motor.run_reverse(abs(motor_speed))
+                                state_desc = f"向下 {value:+.3f}"
+                            else:
+                                # 在死区内
+                                motor.stop() # 停止电机
+                                pass # state_desc 已经是 "居中"
             
             if not running: # 如果内部循环因为 pygame.QUIT 而中断
                 break
