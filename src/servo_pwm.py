@@ -66,14 +66,11 @@ def cleanup_pwm(pwm: GPIO.PWM):
     GPIO.cleanup()
 
 
-# ———————— 下面封装一个“设置舵机角度”的函数 ————————
-
-# 全局变量：初始化一次就可以，多次调用 set_servo_angle 不必重复初始化硬件
 _pwm_servo = None
 
 def set_servo_angle(angle: float):
     """
-    将舵机转到指定角度（0~180）并保持。
+    将舵机转到指定角度（0~180）。
     首次调用时，会自动初始化 PWM 输出；随后调用只改变占空比。
     参数:
         angle: float，舵机目标角度，范围 [0, 180]
@@ -81,23 +78,31 @@ def set_servo_angle(angle: float):
     global _pwm_servo
     # 第一次调用时，初始化 PWM
     if _pwm_servo is None:
+        # 假设 initialize_pwm 和 angle_to_duty_cycle 是你已有的函数
+        # from your_pwm_setup_module import initialize_pwm, PWM_PIN_BOARD, PWM_FREQ_HZ 
+        # from your_angle_converter import angle_to_duty_cycle
+        
+        # 示例占位：你需要用实际的函数替换
+        # _pwm_servo = initialize_pwm(PWM_PIN_BOARD, PWM_FREQ_HZ)
+        print("PWM 首次初始化 (模拟)") # 替换为实际的初始化
         _pwm_servo = initialize_pwm(PWM_PIN_BOARD, PWM_FREQ_HZ)
-        # 等待略微稳定
-        time.sleep(0.1)
+        
+        # 这里的短暂 sleep 是为了确保 PWM 初始化后稳定，可以保留或调整
+        time.sleep(0.1) 
 
     # 将角度转换为占空比
-    duty = angle_to_duty_cycle(angle)
-    # 改变占空比，舵机会根据新占空比转向对应角度
-    _pwm_servo.ChangeDutyCycle(duty)
-    # 给舵机留一定时间到位（可根据实际扭矩与速度调节）
-    # 0.5 ~ 1 秒通常足够大部分小舵机到位
-    time.sleep(0.5)
-    # 如果想让舵机持续接收脉冲，可以注释掉下面一行；如果想让舵机停止供电（节省功耗、降温），可在到位后将占空比设为0
-    _pwm_servo.ChangeDutyCycle(0.0)
+    duty = angle_to_duty_cycle(angle) # 确保你有这个函数
+    # 对于50Hz，0度约2.5% (0.5ms)，90度约7.5% (1.5ms)，180度约12.5% (2.5ms)
+    
+
+    if _pwm_servo: # 确保 _pwm_servo 已被初始化
+        _pwm_servo.ChangeDutyCycle(duty)
+        print(f"(模拟) PWM ChangeDutyCycle to {duty:.2f} for angle {angle:.1f}°") # 替换为实际的调用
+    else:
+        print("错误: _pwm_servo 未初始化！")
 
 
-# ——————————————————————————————————————————————————————————————————————————————————
-# 如果需要单独测试脚本，可在此 __main__ 中调用：
+
 if __name__ == "__main__":
     try:
         set_servo_angle(45)    # 设置舵机到 45°
