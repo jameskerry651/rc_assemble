@@ -177,7 +177,7 @@ def main_loop(joystick: pygame.joystick.Joystick):
     print("按 Ctrl+C 退出程序。")
     
      # 创建电机控制器实例
-    motor = MotorController(pwm_pin=15, dir_pin=22, pwm_frequency=1000)
+    motor = MotorController(pwm_pin=15, dir_pin=13, pwm_frequency=1000)
      # 显示配置信息
     # status = motor.get_status()
     # print(f"PWM引脚 (BOARD): {status['pwm_pin']}")
