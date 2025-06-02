@@ -29,7 +29,7 @@ except ImportError:
     print("警告：servo_pwm 模块未找到。舵机控制将不可用。")
     exit(-1)
 
-
+# --- 电机控制模块导入 ---
 try:
     from motor_contro_agx import MotorController
     print("motor_contro_agx 模块已成功导入。")
@@ -47,20 +47,15 @@ def init_joystick():
         while True:
             print("未检测到手柄，请检查是否已插入并且打开。")
             print("请插入手柄后按任意键继续...")
-            time.sleep(1)  # 等待一段时间，避免过于频繁的检测
+            print("请检查sudo 权限是否正确，确保手柄驱动已安装。")
+            time.sleep(2)  # 等待一段时间，避免过于频繁的检测
             if pygame.joystick.get_count() > 0:
                 break
-
-        #pygame.quit()
-        #sys.exit(1)
 
     joystick = pygame.joystick.Joystick(0) # 使用第一个检测到的手柄
     joystick.init() # 初始化手柄对象
 
     print(f"已找到手柄：{joystick.get_name()}")
-    print(f"  按钮数量：{joystick.get_numbuttons()}")
-    print(f"  轴数量：{joystick.get_numaxes()}")
-    print(f"  方向键(Hats)数量：{joystick.get_numhats()}")
     
     if joystick.get_numaxes() < max(LEFT_STICK_X_AXIS, RIGHT_STICK_Y_AXIS) + 1:
         print(f"错误：手柄轴数量不足以支持所需的轴 (需要至少 {max(LEFT_STICK_X_AXIS, RIGHT_STICK_Y_AXIS) + 1} 个轴)。")
@@ -130,11 +125,7 @@ def calculate_motor_speed(joystick_value: float,
         float: 映射后的电机速度
                正值表示正向运行，负值表示反向运行
                0表示停止
-               
-    示例:
-        calculate_motor_speed(0.5)    # 返回 60.0 (正向，中等速度)
-        calculate_motor_speed(-0.8)   # 返回 -84.0 (反向，高速度)
-        calculate_motor_speed(0.05)   # 返回 0.0 (死区内，停止)
+
     """
     
     # 参数验证
@@ -178,20 +169,12 @@ def main_loop(joystick: pygame.joystick.Joystick):
     
      # 创建电机控制器实例
     motor = MotorController(pwm_pin=15, dir_pin=13, pwm_frequency=1000)
-     # 显示配置信息
-    # status = motor.get_status()
-    # print(f"PWM引脚 (BOARD): {status['pwm_pin']}")
-    # print(f"方向控制引脚 (BOARD): {status['dir_pin']}")
-    # print(f"PWM频率: {status['pwm_frequency']} Hz")
-    # print("确保您的电机驱动器连接正确!")
-    # print("按 Ctrl+C 退出并清理资源")
-
+  
      # 初始化电机控制
     if not motor.initialize():
         print("由于初始化失败而退出")
         exit(-1)
 
-    
     running = True
     last_servo_angle_sent = -1 # 用于减少重复发送相同的舵机角度
     last_motor_speed = 0 # 用于跟踪上次的电机速度

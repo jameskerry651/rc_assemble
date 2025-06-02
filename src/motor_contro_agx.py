@@ -4,7 +4,6 @@ import atexit
 from typing import Optional, Union
 
 class MotorController:
-    """Jetson GPIO电机控制器类"""
     def __init__(self, pwm_pin: int = 15, dir_pin: int = 22, pwm_frequency: int = 1000):
         """
         初始化电机控制器
@@ -51,12 +50,10 @@ class MotorController:
             # 初始化方向控制引脚
             print(f"设置方向控制引脚 {self.DIR_PIN} 为输出模式")
             GPIO.setup(self.DIR_PIN, GPIO.OUT)
-            GPIO.output(self.DIR_PIN, self._current_direction)
+            GPIO.output(self.DIR_PIN, self.DIRECTION_FORWARD)  # 默认方向为正向
+            self._current_direction = self.DIRECTION_FORWARD
             
             # 初始化PWM引脚
-            print(f"在引脚 {self.PWM_PIN} 上初始化PWM，频率: {self.PWM_FREQUENCY} Hz")
-            print(f"注意: 引脚 {self.PWM_PIN} 将使用软件PWM")
-            
             self._pwm_motor = GPIO.PWM(self.PWM_PIN, self.PWM_FREQUENCY)
             self._pwm_motor.start(0)  # 以0%占空比启动PWM (电机停止)
             
@@ -100,7 +97,7 @@ class MotorController:
             # time.sleep(0.1)  # 短暂延迟确保电机完全停止
         
         GPIO.output(self.DIR_PIN, direction)
-        # self._current_direction = direction
+        self._current_direction = direction
         
         direction_str = "正向" if direction == self.DIRECTION_FORWARD else "反向"
         print(f"电机方向设置为: {direction_str}")
@@ -109,7 +106,6 @@ class MotorController:
     def set_speed(self, speed: Union[int, float]) -> bool:
         """
         设置电机速度
-        
         Args:
             speed (Union[int, float]): 速度百分比 (0-100)
                                      0表示停止，100表示当前方向的最大速度
@@ -201,21 +197,6 @@ class MotorController:
         """
         return self.set_direction(self.DIRECTION_REVERSE) and self.set_speed(speed)
     
-    # def read_motor_dir(self) -> str:
-    #     pin = 32
-    #     #GPIO.setmode(GPIO.BOARD)  # 使用物理引脚编号
-    #     GPIO.setup(pin, GPIO.IN)
-    #     print(f"成功将 Jetson 物理引脚 {pin} 设置为输入模式。")
-    #     pin_level = GPIO.input(pin)
-
-    #     if pin_level == GPIO.HIGH:
-    #         pin_state = "高电平 (1)"
-    #         print(f"[{time.strftime('%H:%M:%S')}] Pin {pin} 电平: 高电平 (1)")
-    #     else:
-    #         pin_state = "低电平 (0)"
-    #         print(f"[{time.strftime('%H:%M:%S')}] Pin {pin} 电平: 低电平 (0)")
-    #     GPIO.cleanup()
-    #     return pin_state
 
     def get_status(self) -> dict:
         """
@@ -225,13 +206,7 @@ class MotorController:
             dict: 包含电机状态信息的字典
         """
         direction_str = "正向" if self._current_direction == self.DIRECTION_FORWARD else "反向"
-        # 读取pin16的电平
-        pin16_state = self.read_motor_dir()
-        if pin16_state == GPIO.HIGH:
-            direction_str += " (pin16 HIGH)"
-        else:
-            direction_str += " (pin16 LOW)"
-        # 返回状态信息
+
         return {
             'initialized': self._is_initialized,
             'speed': self._current_speed,
@@ -262,8 +237,9 @@ class MotorController:
             if self._is_initialized:
                 GPIO.output(self.DIR_PIN, GPIO.LOW)  # 设置安全状态
             GPIO.cleanup()
-        except:
-            pass  # 忽略清理过程中的错误
+        except Exception:
+            print("清理过程中发生错误，可能是GPIO未正确初始化或已被清理")
+            
     
     def cleanup(self):
         """清理GPIO资源"""
