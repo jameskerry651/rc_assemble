@@ -30,3 +30,12 @@
 
 `` echo 0 | sudo tee export ``
 
+
+## NVIDIA Jetson Orin Nano 引脚配置
+为了给RC车输出两路pwm信号，需要占用至少2个pwm口，以下为Jetson Orin Nano的引脚配置
+
+Pin 15 : 给无刷电机输出pwm脉冲
+Pin 33 ：给舵机输出pwm脉冲
+
+Pin 13 : 给无刷电机输出方向信号
+

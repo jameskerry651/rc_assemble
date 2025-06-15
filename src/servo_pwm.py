@@ -15,7 +15,7 @@ import time
 
 # ——————————————————————————————————————————————————————————————————————————————————
 # 配置参数
-PWM_PIN_BOARD = 13      # 物理引脚编号（BOARD 模式），即 J30-13
+PWM_PIN_BOARD = 33      # 物理引脚编号（BOARD 模式）
 PWM_FREQ_HZ   = 50      # 舵机常用控制频率：50Hz
 ANGLE_MIN     = 0       # 舵机最小角度
 ANGLE_MAX     = 180     # 舵机最大角度
@@ -106,7 +106,7 @@ def set_servo_angle(angle: float):
 if __name__ == "__main__":
     try:
         set_servo_angle(45)    # 设置舵机到 45°
-        time.sleep(1)  # 等待舵机到位
+        time.sleep(0.2)  # 等待舵机到位
 
         print("测试结束，退出并清理 GPIO。")
     except KeyboardInterrupt:

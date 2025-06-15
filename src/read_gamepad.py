@@ -14,9 +14,14 @@ RIGHT_STICK_Y_AXIS = 3 # 右摇杆纵向轴
 DEADZONE_THRESHOLD = 0.05 # 
 
 # 舵机角度配置
-SERVO_MIN_ANGLE = 0
-SERVO_CENTER_ANGLE = 90
-SERVO_MAX_ANGLE = 180
+SERVO_MIN_ANGLE = 63
+SERVO_CENTER_ANGLE = 80
+SERVO_MAX_ANGLE = 100
+
+# 电机引脚设置
+MOTOR_PWM_PIN = 15  # 电机 PWM 引脚
+MOTOR_DIR_PIN = 13  # 电机方向引脚
+MOTOR_MAX_SPEED = 50  # 电机最大速度 (单位: %)
 
 # 主循环延迟
 LOOP_DELAY_S = 0.02  # 循环间的等待时间（秒），例如 0.02s = 20ms = 50Hz
@@ -109,7 +114,7 @@ def calculate_motor_speed(joystick_value: float,
                          deadzone: float = 0.1,
                          center_speed: float = 0.0, 
                          min_speed: float = 0.0, 
-                         max_speed: float = 30.0) -> float:
+                         max_speed: float = MOTOR_MAX_SPEED) -> float:
     """
     将摇杆值映射为电机速度和方向
     
@@ -168,7 +173,7 @@ def main_loop(joystick: pygame.joystick.Joystick):
     print("按 Ctrl+C 退出程序。")
     
      # 创建电机控制器实例
-    motor = MotorController(pwm_pin=15, dir_pin=13, pwm_frequency=1000)
+    motor = MotorController(pwm_pin=MOTOR_PWM_PIN, dir_pin=MOTOR_DIR_PIN, pwm_frequency=1000)
   
      # 初始化电机控制
     if not motor.initialize():
